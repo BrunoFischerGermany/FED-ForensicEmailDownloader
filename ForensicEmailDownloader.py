@@ -45,47 +45,47 @@ example2 = "python3 ForensicEmailDownloader.py -u user@example.com -p mypassword
 def main(output=None, username=None, password=None, imapurl=None, sslport=None, evidence=None, examiner=None, case=None):
     try:
         urllib.request.urlopen('https://www.google.com', timeout=5)
-        print('Internetverbindung besteht.')
+        print('Internet connection exists.')
     except:
-        print('Es besteht keine Internetverbindung.')
+        print('Internet connection does not exists.')
         exit()
 
     if args.output:
         output = args.output
     else:
-        output = input("Bitte geben Sie den Zielpfad ein: ")
+        output = input("Please enter the output path: ")
     if not output:
         output = "./"
     if args.username:
         username = args.username
     else:
-        username = input("Bitte geben Sie den Benutzernamen/die Email-Adresse ein: ")
+        username = input("Please enter the username/email address: ")
     if args.password:
         password = args.password
     else:
-        password = input("Bitte geben Sie das Passwort ein: ")
+        password = input("Please enter the password: ")
     if args.imapurl:
         imapurl = args.imapurl
     else:
-        imapurl = input("Bitte geben Sie die URL zum IMAP-Server ein: ")
+        imapurl = input("Please enter the URL to the IMAP server: ")
     if args.sslport:
         sslport = args.sslport
     else:
-        sslport = input("Bitte geben Sie den Port zum IMAP-Server an (Freilassen für Standart-Port 993): ")
+        sslport = input(f"Please specify the port to the IMAP server (leave empty for default port {sslport}): ")
     if not sslport:
         sslport = 993
     if args.examiner:
         examiner = args.examiner
     else:
-        examiner = input("Bitte geben Sie einen Examiner an: ")
+        examiner = input("Please specify an Examiner: ")
     if args.case:
         case = args.case
     else:
-        case = input("Bitte geben Sie eine Fallnummer an: ")
+        case = input("Please specify the case number: ")
     if args.evidence:
         evidence = args.evidence
     else:
-        evidence = input("Bitte geben Sie eine Asservatsnummer an: ")
+        evidence = input("Please specify the evidence object number: ")
 
     if os.path.exists(output) and os.access(output, os.W_OK):
         print(f'The backup path "{output}" exists and is writeable.')
@@ -125,13 +125,13 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         osSystem = "Other"
         osVersion = "Other"
     startText = f"""{programTitle}
-Fallnummer: {case}
-Asservatsnummer: {evidence}
-Examiner: {examiner}
+case number: {case}
+evidence number: {evidence}
+examiner: {examiner}
 
-Betriebssystem: {osSystem}
-Betriebssystem-Version: {osVersion}
-Computer-User: {login_name}
+operating system: {osSystem}
+operating system version: {osVersion}
+computer user: {login_name}
 
 """
 
@@ -141,8 +141,8 @@ Computer-User: {login_name}
     logging.basicConfig(filename=logging_file, level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s')
 
-    logging.info('Internetverbindung besteht.')
-    logging.info(f'Der Sicherungspfad "{folder_path}" existiert und ist beschreibbar.')
+    logging.info('Internet connection exists.')
+    logging.info(f'The backup path "{folder_path}" exists and is writeable.')
     ssl_context = ssl.create_default_context()
 
     # don't check if certificate hostname doesn't match target hostname
@@ -167,7 +167,7 @@ Computer-User: {login_name}
             # Erstellen Sie die Ordnerstruktur im Zielverzeichnis
             imap_sub_folder = os.path.join(email_folder_path, decoded_folder)
             os.makedirs(imap_sub_folder, exist_ok=True)
-            logging.info(f"Ordner {imap_sub_folder} erstellt.")
+            logging.info(f"Folder {imap_sub_folder} created.")
             # Wähle Ordner aus
             encoded_folder = imap_utf7.encode(folder[2])
             print(imap_utf7.encode(folder[2]))
@@ -184,8 +184,8 @@ Computer-User: {login_name}
             # logging.info(f"Gesamtgröße der E-Mails im Ordner {folder[2]}: {total_size} Bytes")
 
     except Exception as e:
-        logging.error(f"Fehler beim Verwenden von imapclient: {e}")
-        print(f"Fehler beim Verwenden von imapclient: {e} {encoded_folder}")
+        logging.error(f"Error when using imapclient: {e}")
+        print(f"Error when using imapclient: {e} {encoded_folder}")
 
     finally:
         # Verbindung zum IMAP-Server schließen
