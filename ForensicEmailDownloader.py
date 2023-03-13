@@ -1,4 +1,3 @@
-#./venv python3
 """
 Licensed under MIT License, (c) B. Fischer
 """
@@ -209,7 +208,7 @@ if __name__ == '__main__':
     print(f"""
 {programTitle}
 
-Github: https://
+Github: https://github.com/BrunoFischerGermany/FED-ForensicEmailDownloader
 Email: info @ bruno-fischer.de
 
 Example: 
