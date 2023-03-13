@@ -5,7 +5,7 @@ It's a Python based IMAP Download Script.
 
 ## Usage/Examples
 
-```python
+```
 python3 ForensicEmailDownloader.py --username user@example.com --password mypassword --imapurl imap.example.com --output C:\\tmp
 python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.example.com -o /tmp/mails
 
@@ -17,10 +17,13 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 --examiner / -x             Name of examiner
 --case     / -c             Name of case
 --evidence / -e             evidence number
-
-
+```
 ## Authors
 
 - [@BrunoFischerGermany](https://www.github.com/BrunoFischerGermany)
 
 - [@ma-fox](https://github.com/ma-fox)
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)
+
