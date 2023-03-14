@@ -65,21 +65,24 @@ def test_imap_credentials(imapurl, sslport, username, password):
 #########################
 # global variables
 #########################
+thisprogram = sys.argv[0]
+file_path = os.path.realpath(thisprogram)
+thisprogram = os.path.basename(file_path)
 programTitle = """
  ______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
 |  ____|  ____|  __ \       |  ____|                     (_)    |  ____|               (_) |  __ \                    | |               | |          
 | |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
 |  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
 | |    | |____| |__| |      | | | (_) | | |  __/ | | \__ \ | (__| |____| | | | | | (_| | | | |__| | (_) \ V  V /| | | | | (_) | (_| | (_| |  __/ |   
-|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.1 
+|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.2-alpha 
 
 (C) 2023 - BrunoFischerBerlin - MIT Licence
 Github: https://github.com/BrunoFischerGermany/FED-ForensicEmailDownloader
 Email: info @ bruno-fischer.de
 """
 
-example1 = "python3 ForensicEmailDownloader.py --username user@example.com --password mypassword --imapurl imap.example.com --output C:\\tmp"
-example2 = "python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.example.com -o /tmp/mails"
+example1 = f"python3 {thisprogram} --username user@example.com --password mypassword --imapurl imap.example.com --output C:\\tmp"
+example2 = f"python3 {thisprogram} -u user@example.com -p mypassword -i imap.example.com -o /tmp/mails"
 
 #############################
 # Main Window
@@ -111,15 +114,15 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
     if args.username:
         username = args.username
     if not username:
-        username = ""
+        username = "-empty-value-"
     if args.password:
         password = args.password
     if not password:
-        password = ""
+        password = "-empty-value-"
     if args.imapurl:
         imapurl = args.imapurl
     if not imapurl:
-        imapurl = ""
+        imapurl = "-empty-values-"
     if args.sslport:
         sslport = args.sslport
     if not sslport:
@@ -131,15 +134,15 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
     if args.examiner:
         examiner = args.examiner
     if not examiner:
-        examiner = ""
+        examiner = "-empty-values-"
     if args.case:
         case = args.case
     if not case:
-        case = ""
+        case = "-empty-values-"
     if args.evidence:
         evidence = args.evidence
     if not evidence:
-        evidence = ""
+        evidence = "-empty-values-"
 
     # Get System Data
 
@@ -164,6 +167,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
     print(f'operating system version: {osVersion}')
     print(f'computer user: {login_name}\n')
 
+    print("Please fill out the empty values!\n")
     ########################################
     # Print out the defaults
     ########################################
@@ -176,18 +180,24 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 imapTestString += " successful "
         else:
             imapTestString = "Result: Credential not tested yet"
-
+        # Check the Output Path exists and is writeable, when not, then go to stand ./
+        if not os.path.exists(output) and not os.access(output, os.W_OK):
+            outputPathString = "Entered Output Path is not valid, Now is Standard ./"
+            output = "./"
+        else:
+            outputPathString = "√ Output Path is valid and exists "
         print(f'[1] Username/Email-Address:\t\t{username}')
         print(f'[2] Password:\t\t\t\t{password}')
         print(f'[3] IMAP-Server:\t\t\t{imapurl}')
         print(f'[4] IMAP-Server-SSL-Port:\t\t{sslport}')
-        print(f'[5] Output-Path :\t\t\t{output}')
+        print(f'[5] Output-Path:\t\t\t{output}\t{outputPathString}')
         print(f'[6] Examiner:\t\t\t\t{examiner}')
         print(f'[7] Case:\t\t\t\t{case}')
         print(f'[8] Evicence:\t\t\t\t{evidence}')
+        print(f'[C] clear credential file')
         print(f'[T] test imap credentials\t\t{imapTestString}')
         print(f'[S] save email data to output path')
-        # 16 Lines
+        # 11 Lines
 
         choose = input('Please select an option [1-8; S; T] (q to exit): ')
         # End loop when 'q' is entered
@@ -209,22 +219,33 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             case = input("Please specify the case number: ")
         if choose.upper() == '8':
             evidence = input("Please specify the evidence object number: ")
+        if choose.upper() == "C":
+            with open(pickle_file, "w") as f:
+                f.write("")
+            username = "-empty-value-"
+            password = "-empty-value-"
+            imapurl = "-empty-value-"
+            sslport = 993
+            output = "./"
+            examiner = "-empty-value-"
+            case = "-empty-value-"
+            evidence = "-empty-value-"
+        if choose.upper() == "S":
+            if imapTestResult == 0:
+                choose = "T"
+            else:
+                print('execute export')
         if choose.upper() == "T":
             # Test the Credentials
             imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
-        if choose.upper() != 'T' and choose.upper() != 'S':
-            with open(pickle_file, 'wb') as f:
-                pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
-            print('Credentical File updated')
-        else:
-            ## emty line for not shown credential file updated
-            print()
+        with open(pickle_file, 'wb') as f:
+            pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
         delete_last_lines(12)
 
 
 
 if __name__ == '__main__':
-    os.system('mode con: cols=170 lines=40')
+    os.system('mode con: cols=180 lines=45')
     parser = argparse.ArgumentParser(description={programTitle},
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog="""Example:
