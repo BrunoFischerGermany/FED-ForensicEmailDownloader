@@ -38,6 +38,49 @@ def delete_last_lines(n=1):
         sys.stdout.write('\033[F')
         # Delete the line with spaces
         sys.stdout.write('\033[K')
+
+def export_email(username, password, imapurl, sslport, output, examiner, case, evidence, osSystem, osVersion, login_name):
+    lines = 0
+    now = datetime.datetime.now()
+    folder_path = os.path.join(output, now.strftime("%Y-%m-%d_%H-%M-%S"))
+    # Folder create
+    os.makedirs(folder_path)
+    if os.path.exists(folder_path) and os.access(folder_path, os.W_OK):
+        print(f'The backup path "{folder_path}" exists and is writeable.')
+        lines += 1
+        output = folder_path
+    else:
+        print(f'The backup path "{folder_path}" could not be created.')
+        lines += 1
+        exit()
+    logging_file = output + '/' + now.strftime("%Y-%m-%d_%H-%M-%S") + '.txt'
+    if os.path.exists(logging_file):
+        print(f'The log file already {logging_file} exists and will be overwritten.')
+    else:
+        print(f'The log file  {logging_file} will created.')
+    lines += 1
+    startText = f"""{programTitle}
+case number: {case}
+evidence number: {evidence}
+examiner: {examiner}
+
+operating system: {osSystem}
+operating system version: {osVersion}
+computer user: {login_name}
+
+"""
+    with open(logging_file, 'w') as f:
+        f.write(startText)
+    logging.basicConfig(filename=logging_file, level=logging.INFO,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
+    logging.info('Internet connection exists.')
+    logging.info(f'The backup path "{folder_path}" exists and is writeable.')
+
+    email_folder_path = os.path.join(output, username)
+    os.makedirs(email_folder_path, exist_ok=True)
+    logging.info(f'The email-Folder "{email_folder_path}" was created.')
+
 def test_imap_credentials(imapurl, sslport, username, password):
     ssl_context = ssl.create_default_context()
 
@@ -235,6 +278,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 choose = "T"
             else:
                 message = "execute export"
+                export_email(username, password, imapurl, sslport, output, examiner, case, evidence, osSystem, osVersion, login_name)
         if choose.upper() == "T":
             # Check Credentials not empty!
             if(username == "-empty-value-" or password == "-empty-values-" or imapurl == "-empty-value-"):
