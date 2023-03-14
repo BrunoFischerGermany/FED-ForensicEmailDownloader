@@ -68,8 +68,7 @@ def test_imap_credentials(imapurl, sslport, username, password):
 thisprogram = sys.argv[0]
 file_path = os.path.realpath(thisprogram)
 thisprogram = os.path.basename(file_path)
-programTitle = """
- ______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
+programTitle = """______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
 |  ____|  ____|  __ \       |  ____|                     (_)    |  ____|               (_) |  __ \                    | |               | |          
 | |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
 |  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
