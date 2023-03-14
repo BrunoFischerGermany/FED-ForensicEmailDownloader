@@ -68,7 +68,7 @@ def test_imap_credentials(imapurl, sslport, username, password):
 thisprogram = sys.argv[0]
 file_path = os.path.realpath(thisprogram)
 thisprogram = os.path.basename(file_path)
-programTitle = """______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
+programTitle = """ ______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
 |  ____|  ____|  __ \       |  ____|                     (_)    |  ____|               (_) |  __ \                    | |               | |          
 | |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
 |  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
@@ -185,6 +185,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             output = "./"
         else:
             outputPathString = "√ Output Path is valid and exists "
+        message = ""
         print(f'[1] Username/Email-Address:\t\t{username}')
         print(f'[2] Password:\t\t\t\t{password}')
         print(f'[3] IMAP-Server:\t\t\t{imapurl}')
@@ -233,14 +234,22 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             if imapTestResult == 0:
                 choose = "T"
             else:
-                print('execute export')
+                message = "execute export"
         if choose.upper() == "T":
-            # Test the Credentials
-            imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
-        with open(pickle_file, 'wb') as f:
-            pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
-        delete_last_lines(12)
-
+            # Check Credentials not empty!
+            if(username == "-empty-value-" or password == "-empty-values-" or imapurl == "-empty-value-"):
+                message = "Plese check the IMAP-Credentials like Username, Password, IMAP-Server. This should not be empty!"
+            else:
+                # Test the Credentials
+                imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
+                message = "IMAP-Credentials tested"
+        if choose.upper() != "C" and choose.upper() != "S" and choose.upper() != "T":
+            with open(pickle_file, 'wb') as f:
+                pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
+            message = "update credential file"
+            delete_last_lines(1)
+        delete_last_lines(14)
+        print(f'Message: {message}\n')
 
 
 if __name__ == '__main__':
