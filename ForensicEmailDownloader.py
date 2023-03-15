@@ -433,7 +433,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             else:
                 imapurl = "-empty-value-"
         if username == "-empty-value-":
-            imapurl = "-empty-value?-"
+            imapurl = "-empty-value-"
     if args.sslport:
         sslport = args.sslport
     if not sslport:
