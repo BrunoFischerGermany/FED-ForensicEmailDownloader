@@ -213,7 +213,7 @@ computer user: {login_name}
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
                 select_result = imap_server.select_folder(decoded_folder, readonly=True)
-                print(f'Processing folder {decoded_folder}')
+                print(f'Reading folder {decoded_folder}')
                 if select_result is None:
                     logging.error(f"Could not select folder {decoded_folder}")
                     continue
@@ -256,7 +256,7 @@ computer user: {login_name}
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
                 select_result = imap_server.select_folder(decoded_folder, readonly=True)
-                print(f'Processing folder {decoded_folder}')
+                print(f'Downloading email from folder {decoded_folder}')
                 if select_result is None:
                     logging.error(f"Could not select folder {decoded_folder}")
                     continue
@@ -526,9 +526,9 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         if usernameTestTimestamp is not None:
             usernameTestString = "Result: " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(imapTestTimestamp))
             if usernameTestResult == 0:
-                usernameTestString += " This Value is not an valid email address "
+                usernameTestString += " This Value is not a valid email address "
             if usernameTestResult == 1:
-                usernameTestString += " This Value is an valid email address "
+                usernameTestString += " This Value is a valid email address "
         else:
             usernameTestString = " This value is not tested yet "
         message = ""
@@ -580,6 +580,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             examiner = "-empty-value-"
             case = "-empty-value-"
             evidence = "-empty-value-"
+            print() # empty line
         if choose.upper() == "S":
             if imapTestResult == 0:
                 choose = "T"
@@ -599,14 +600,18 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
                 message = "IMAP-Credentials tested"
         if choose.upper() != "S" and choose.upper() != "T":
-            with open(pickle_file, 'wb') as f:
-                pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
-            message = "update credential file"
-            delete_last_lines(1)
+            if choose.upper() == "1" or choose.upper() == "2" or choose.upper() == "3" or choose.upper() == "4" or choose.upper() == "5" or choose.upper() == "6" or choose.upper() == "7" or choose.upper() == "8":
+                with open(pickle_file, 'wb') as f:
+                    pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
+                    message = "update credential file"
+            if len(message) > 0:
+                delete_last_lines(1)
+
         delete_last_lines(lines)
-        print(f'Message: {message}\n')
-
-
+        if len(message) > 0:
+            print(f'Message: {message}\n')
+        else:
+            print('Nothing changed\n')
 if __name__ == '__main__':
     os.system('mode con: cols=180 lines=45')
     parser = argparse.ArgumentParser(description={programTitle},
