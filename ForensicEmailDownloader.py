@@ -5,6 +5,7 @@ import argparse
 import datetime
 import dns.resolver
 import email
+from email.header import decode_header
 import hashlib
 import imapclient
 from imapclient import imap_utf7
@@ -19,8 +20,15 @@ import subprocess
 import sys
 import time
 import urllib.request
+from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 
+def extract_charset(content_type):
+    match = re.search('charset=([\w-]+)', content_type)
+    if match:
+        return match.group(1)
+    else:
+        return 'utf-8'
 def formatDuration(duration):
     if duration >= 3600:
         hours = int(duration // 3600)
@@ -54,9 +62,10 @@ def get_imap_settings(domain):
                 sslport = incoming_server.find("port").text
                 return imapurl, sslport
     return imapurl, sslport
+
 def validate_email(email):
     # Check the format of the email address with a regular expression
-    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    pattern = r"^[\w\d!#$%&'*+\-/=?^_`{|}~\.]+@([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$"
     if not re.match(pattern, email):
         return False
 
@@ -68,9 +77,8 @@ def validate_email(email):
         return False
 
     # Extract the domain from the email address
+    domain = urlparse("http://" + domain).netloc.split(":")[0]
     return domain
-
-
 def convert_size(size_bytes):
     # Definiere die Namen der Maßeinheiten und ihre Größen in Bytes
     units = ["B", "KB", "MB", "GB", "TB"]
@@ -172,7 +180,7 @@ computer user: {login_name}
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
         # Execute authentication
-        imap_server.login(username, password)
+        imap_server.login(username.encode('utf-8'), password)
         imap_server.select_folder('INBOX', readonly=True)
 
         folder_list = imap_server.list_folders()
@@ -199,7 +207,7 @@ computer user: {login_name}
     total_size = 0
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
-        imap_server.login(username, password)
+        imap_server.login(username.encode('utf-8'), password)
         folder_list = imap_server.list_folders()
         for folder in folder_list:
             try:
@@ -240,10 +248,9 @@ computer user: {login_name}
     with open(logging_file, 'a', encoding='utf-8') as f:
         f.write("\nDownload all Emails to eml\n")
     total_email_download = 0
-    total_size_download = 0
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
-        imap_server.login(username, password)
+        imap_server.login(username.encode('utf-8'), password)
         folder_list = imap_server.list_folders()
         for folder in folder_list:
             try:
@@ -265,17 +272,36 @@ computer user: {login_name}
                         imap_sub_folder = os.path.join(email_folder_path, decoded_folder)
                         for email_id in email_ids:
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
+                            raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
 
                             # Parse raw email data
                             email_message = email.message_from_bytes(raw_email)
-                            #uid = imap_server.fetch([email_id], ['UID'])[email_id][b'UID']
+
+                            # Decode the email content
+                            if email_message.is_multipart():
+                                for part in email_message.walk():
+                                    content_type = part.get_content_type()
+                                    if content_type == 'text/plain' or content_type == 'text/html':
+                                        charset = part.get_content_charset()
+                                        if charset:
+                                            content = part.get_payload(decode=True).decode(charset)
+                                        else:
+                                            content = part.get_payload(decode=True).decode('utf-8', 'ignore')
+                                        break
+                            else:
+                                content_type = email_message.get_content_type()
+                                charset = email_message.get_content_charset()
+                                if charset:
+                                    content = email_message.get_payload(decode=True).decode(charset)
+                                else:
+                                    content = email_message.get_payload(decode=True).decode('utf-8', 'ignore')
 
                             # Create a filename for the EML file
                             email_id_nr = str(email_id)
                             email_filename = f"{imap_sub_folder}\Message_{email_id_nr.zfill(6)}.eml"
                             # Write the email message to a file
-                            with open(email_filename, 'w', encoding="utf-8") as f:
-                                f.write(raw_email.decode('utf-8'))
+                            with open(email_filename, 'wb') as f:
+                                f.write(raw_email)
                             file_md5 = calculate_file_md5(email_filename)
                             # Print the file size in a human-readable format
                             file_size = os.path.getsize(email_filename)
@@ -340,7 +366,7 @@ def test_imap_credentials(imapurl, sslport, username, password):
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
         # Execute authentication
-        imap_server.login(username, password)
+        imap_server.login(username.encode('utf-8'), password)
         imapTestResult = 1
         imapTestTimestamp = time.time()
         return imapTestResult, imapTestTimestamp
@@ -365,7 +391,7 @@ programTitle = """ ______ ______ _____         ______                       _   
 | |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
 |  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
 | |    | |____| |__| |      | | | (_) | | |  __/ | | \__ \ | (__| |____| | | | | | (_| | | | |__| | (_) \ V  V /| | | | | (_) | (_| | (_| |  __/ |   
-|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.2-alpha 
+|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.3-beta 
 
 (C) 2023 - BrunoFischerBerlin - MIT Licence
 Github: https://github.com/BrunoFischerGermany/FED-ForensicEmailDownloader
