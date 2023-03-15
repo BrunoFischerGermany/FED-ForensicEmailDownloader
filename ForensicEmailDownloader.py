@@ -5,9 +5,11 @@ import argparse
 import datetime
 import dns.resolver
 import email
+import hashlib
 import imapclient
-from imapclient import  imap_utf7
+from imapclient import imap_utf7
 import logging
+import math
 import os
 import platform
 import pickle
@@ -20,6 +22,20 @@ import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
+def formatDuration(duration):
+    if duration >= 3600:
+        hours = int(duration // 3600)
+        minutes = int((duration % 3600) // 60)
+        seconds = int(duration % 60)
+        duration_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+    elif duration >= 60:
+        minutes = int(duration // 60)
+        seconds = int(duration % 60)
+        duration_str = f"{minutes:02}:{seconds:02}"
+    else:
+        duration_str = f"{duration:.2f}s"
+
+    return duration_str
 def get_imap_settings(domain):
 
     # Retrieve the web page for the given domain
@@ -55,6 +71,27 @@ def validate_email(email):
     # Extract the domain from the email address
     return domain
 
+
+def convert_size(size_bytes):
+    # Definiere die Namen der Maßeinheiten und ihre Größen in Bytes
+    units = ["B", "KB", "MB", "GB", "TB"]
+    sizes = [1024 ** i for i in range(len(units))]
+
+    # Finde die passende Maßeinheit
+    for i, size in enumerate(sizes[::-1]):
+        if size_bytes >= size:
+            return f"{round(size_bytes / size, 2)} {units[len(units) - i - 1]}"
+
+    # Wenn die Größe kleiner als 1 Byte ist
+    return f"{size_bytes} B"
+
+def calculate_file_md5(filename):
+    with open(filename, 'rb') as f:
+        md5_hash = hashlib.md5()
+        while chunk := f.read(8192):
+            md5_hash.update(chunk)
+    return md5_hash.hexdigest()
+
 def get_linux_version():
     output = subprocess.check_output(['lsb_release', '-a']).decode('utf-8')
     version = None
@@ -79,6 +116,7 @@ def delete_last_lines(n=1):
 
 def export_email(username, password, imapurl, sslport, output, examiner, case, evidence, osSystem, osVersion, login_name):
     global lines
+    starttime = time.time()
     ssl_context = ssl.create_default_context()
 
     # don't check if certificate hostname doesn't match target hostname
@@ -108,6 +146,12 @@ def export_email(username, password, imapurl, sslport, output, examiner, case, e
 case number: {case}
 evidence number: {evidence}
 examiner: {examiner}
+
+IMAP Credentials
+Username / Email-address: »{username}«
+Password: »{password}«
+IMAP-Server: »{imapurl}«
+IMAP-SSL-Port: »{sslport}«
 
 operating system: {osSystem}
 operating system version: {osVersion}
@@ -150,7 +194,131 @@ computer user: {login_name}
         f.write("\nOutput of the created folder structure\n")
 
     print_directory_tree(email_folder_path, logging_file, output)
+    with open(logging_file, 'a', encoding='utf-8') as f:
+        f.write("\nReading the number and size of emails in the folders\n")
+    total_email = 0
+    total_size = 0
+    imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
+    try:
+        imap_server.login(username, password)
+        folder_list = imap_server.list_folders()
+        for folder in folder_list:
+            try:
+                decoded_folder = imap_utf7.decode(folder[2])
+                select_result = imap_server.select_folder(decoded_folder, readonly=True)
+                print(f'Processing folder {decoded_folder}')
+                if select_result is None:
+                    logging.error(f"Could not select folder {decoded_folder}")
+                    continue
+                else:
+                    email_ids = imap_server.search('ALL', None)
+                    if not email_ids:
+                        logging.info(f'no emails found in the folder »{decoded_folder}«')
+                    else:
+                        folder_total_size = 0
+                        email_count = len(email_ids)
+                        total_email += email_count
+                        email_count_format = '{:,.0f}'.format(email_count)
+                        for email_id in email_ids:
+                            email_data = imap_server.fetch(email_id, ['RFC822.SIZE'])
+                            email_size = email_data[email_id][b'RFC822.SIZE']
+                            folder_total_size += email_size
+                            total_size += email_size
+                            continue
+                        logging.info(f'{email_count_format} emails [Size: {convert_size(folder_total_size)}] found in the folder »{decoded_folder}«.')
+                time.sleep(0.8)
+                delete_last_lines(1)
+            except Exception as e:
+                logging.error(f"Error when processing folder {decoded_folder}: {e}")
+    except Exception as e:
+        logging.error(f"Error when using imapclient: {e}")
+    finally:
+        total_email_format = '{:,.0f}'.format(total_email)
+        logging.info(f"{total_email_format} emails [Size: {convert_size(total_size)}] found in the mailbox")
+        print(f"{total_email_format} emails [Size: {convert_size(total_size)}] found in the mailbox")
+        lines += 1
+        imap_server.logout()
+    with open(logging_file, 'a', encoding='utf-8') as f:
+        f.write("\nDownload all Emails to eml\n")
+    total_email_download = 0
+    total_size_download = 0
+    imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
+    try:
+        imap_server.login(username, password)
+        folder_list = imap_server.list_folders()
+        for folder in folder_list:
+            try:
+                decoded_folder = imap_utf7.decode(folder[2])
+                select_result = imap_server.select_folder(decoded_folder, readonly=True)
+                print(f'Processing folder {decoded_folder}')
+                if select_result is None:
+                    logging.error(f"Could not select folder {decoded_folder}")
+                    continue
+                else:
+                    email_ids = imap_server.search('ALL', None)
+                    if not email_ids:
+                        logging.info(f'no emails found in the folder »{decoded_folder}«')
+                    else:
+                        folder_total_size = 0
+                        email_count = len(email_ids)
+                        total_email_download += email_count
+                        email_count_format = '{:,.0f}'.format(email_count)
+                        imap_sub_folder = os.path.join(email_folder_path, decoded_folder)
+                        for email_id in email_ids:
+                            raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
 
+                            # Parse raw email data
+                            email_message = email.message_from_bytes(raw_email)
+                            #uid = imap_server.fetch([email_id], ['UID'])[email_id][b'UID']
+
+                            # Create a filename for the EML file
+                            email_id_nr = str(email_id)
+                            email_filename = f"{imap_sub_folder}\Message_{email_id_nr.zfill(6)}.eml"
+                            # Write the email message to a file
+                            with open(email_filename, 'w', encoding="utf-8") as f:
+                                f.write(raw_email.decode('utf-8'))
+                            file_md5 = calculate_file_md5(email_filename)
+                            # Print the file size in a human-readable format
+                            file_size = os.path.getsize(email_filename)
+                            logging.info(f"Downloaded {email_filename} ({convert_size(file_size)}) - MD5: {file_md5}")
+                            #email_data = imap_server.fetch(email_id, ['RFC822.SIZE'])
+                            #email_size = email_data[email_id][b'RFC822.SIZE']
+                            #folder_total_size += email_size
+                            #total_size += email_size
+                            continue
+                        logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.')
+                time.sleep(0.8)
+                delete_last_lines(1)
+            except Exception as e:
+                delete_last_lines(1)
+                logging.error(f"Error when processing folder {decoded_folder}: {e}")
+    except Exception as e:
+        logging.error(f"Error when using imapclient: {e}")
+    finally:
+        total_email_download_format = '{:,.0f}'.format(total_email_download)
+        logging.info(f"{total_email_download_format}  emails downloaded from the mailbox")
+        print(f"{total_email_download_format} emails downloaded from the mailbox")
+        lines += 1
+        if total_email_download == total_email:
+            print(f'the same number {total_email_format} of emails as was read in was also downloaded.')
+            logging.info(f'the same number {total_email_format} of emails as was read in was also downloaded.')
+        if total_email_download != total_email:
+            print(f'There was a difference between the read {total_email_format} and downloaded {total_email_download_format} emails. Please try again.')
+            logging.error(f'There was a difference between the read {total_email_format} and downloaded {total_email_download_format} emails. Please try again.')
+        lines += 1
+        endtime = time.time()
+        duration = endtime - starttime
+        durationString = formatDuration(duration)
+        ## show during
+        print(f"Duration of processing: {durationString}")
+        logging.info(f"Duration of processing: {durationString}")
+        lines += 1
+        # Wait until ends
+        try:
+            lines += 1
+            input("Press enter to exit")
+        except SyntaxError:
+            pass
 def print_directory_tree(root, logging_file, output):
     with open(logging_file, 'a', encoding='utf-8') as f:
         f.write(f"+ {root.replace(output, '')}\n")
@@ -230,7 +398,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         exit()
     # Check an credential.file (credential.pkl) exists in the same folder of this program
     pickle_file = "credential.pkl"
-    if os.path.exists(pickle_file) and os.access(pickle_file, os.W_OK):
+    if os.path.exists(pickle_file) and os.access(pickle_file, os.W_OK) and os.path.getsize(pickle_file) > 0:
         print('√ Credential File found.\n')
         with open(pickle_file, 'rb') as f:
             var_list = pickle.load(f)
@@ -248,8 +416,25 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         password = "-empty-value-"
     if args.imapurl:
         imapurl = args.imapurl
+    if imapurl == "-empty-value-" and username != "-empty-value-":
+        domain = validate_email(username)
+        if domain is not False:
+            usernameTestTimestamp = time.time()
+            usernameTestResult = 1
+            imapurl, sslport = get_imap_settings(domain)
+        else:
+            imapurl = "-empty-value-"
     if not imapurl:
-        imapurl = "-empty-value-"
+        if username != "-empty-value-":
+            domain = validate_email(username)
+            if domain is not False:
+                usernameTestTimestamp = time.time()
+                usernameTestResult = 1
+                imapurl, sslport = get_imap_settings(domain)
+            else:
+                imapurl = "-empty-value-"
+        if username == "-empty-value-":
+            imapurl = "-empty-value?-"
     if args.sslport:
         sslport = args.sslport
     if not sslport:
@@ -379,7 +564,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         if choose.upper() == "T":
             # Check Credentials not empty!
             if(username == "-empty-value-" or password == "-empty-value-" or imapurl == "-empty-value-"):
-                message = "Plese check the IMAP-Credentials like Username, Password, IMAP-Server. This should not be empty!"
+                message = "Please check the IMAP-Credentials like Username, Password, IMAP-Server. This should not be empty!"
             else:
                 # Test the Credentials
                 domain = validate_email(username)
@@ -388,7 +573,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                     usernameTestResult = 1
                 imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
                 message = "IMAP-Credentials tested"
-        if choose.upper() != "C" and choose.upper() != "S" and choose.upper() != "T":
+        if choose.upper() != "S" and choose.upper() != "T":
             with open(pickle_file, 'wb') as f:
                 pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
             message = "update credential file"
