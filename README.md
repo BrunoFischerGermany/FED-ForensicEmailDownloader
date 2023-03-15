@@ -26,6 +26,10 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 --case     / -c             Name of case
 --evidence / -e             evidence number
 ```
+## Known faults
+- email addresses with umlauts like ä,ö,ü in the domain are not accepted
+- errors in log file
+
 ## Authors
 
 - [@BrunoFischerGermany](https://www.github.com/BrunoFischerGermany)
