@@ -9,7 +9,6 @@ import hashlib
 import imapclient
 from imapclient import imap_utf7
 import logging
-import math
 import os
 import platform
 import pickle
