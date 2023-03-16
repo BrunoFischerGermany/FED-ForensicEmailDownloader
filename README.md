@@ -9,7 +9,7 @@
 |_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.2-alpha 
 ```
 
-It's a Python based IMAP Download Script. 
+It's a Python based Forensic IMAP Download Script. 
 
 ## Usage/Examples
 
@@ -26,15 +26,19 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 --case     / -c             Name of case
 --evidence / -e             evidence number
 ```
-## Known faults
+## Known Errors
 - email addresses with german umlauts like ä,ö,ü in the domain are not accepted
 - errors in log file
+- no 2FA
+
+## Future
+- Time Range for Email-Download
 
 ## Authors
 
 - [@BrunoFischerGermany](https://www.github.com/BrunoFischerGermany)
-
 - [@ma-fox](https://github.com/ma-fox)
+
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
