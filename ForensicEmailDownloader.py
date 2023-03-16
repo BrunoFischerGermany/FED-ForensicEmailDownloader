@@ -5,7 +5,6 @@ import argparse
 import datetime
 import dns.resolver
 import email
-from email.header import decode_header
 import hashlib
 import imapclient
 from imapclient import imap_utf7
@@ -212,28 +211,33 @@ computer user: {login_name}
         for folder in folder_list:
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
-                select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 print(f'Reading folder {decoded_folder}')
+                select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 if select_result is None:
                     logging.error(f"Could not select folder {decoded_folder}")
                     continue
                 else:
                     email_ids = imap_server.search('ALL', None)
                     if not email_ids:
+                        print(f'No emails in folder »{decoded_folder}«.')
                         logging.info(f'no emails found in the folder »{decoded_folder}«')
                     else:
                         folder_total_size = 0
                         email_count = len(email_ids)
                         total_email += email_count
                         email_count_format = '{:,.0f}'.format(email_count)
+                        print(f'found {email_count_format} emails in folder »{decoded_folder}«.')
                         for email_id in email_ids:
+                            print(f'Checking size of folder »{decoded_folder}«, currently: {convert_size(folder_total_size)}')
                             email_data = imap_server.fetch(email_id, ['RFC822.SIZE'])
                             email_size = email_data[email_id][b'RFC822.SIZE']
                             folder_total_size += email_size
                             total_size += email_size
+                            delete_last_lines(1)
                             continue
                         logging.info(f'{email_count_format} emails [Size: {convert_size(folder_total_size)}] found in the folder »{decoded_folder}«.')
-                time.sleep(0.8)
+                    delete_last_lines(1)
+                #time.sleep(0.8)
                 delete_last_lines(1)
             except Exception as e:
                 logging.error(f"Error when processing folder {decoded_folder}: {e}")
@@ -255,8 +259,8 @@ computer user: {login_name}
         for folder in folder_list:
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
-                select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 print(f'Downloading email from folder {decoded_folder}')
+                select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 if select_result is None:
                     logging.error(f"Could not select folder {decoded_folder}")
                     continue
@@ -270,49 +274,49 @@ computer user: {login_name}
                         total_email_download += email_count
                         email_count_format = '{:,.0f}'.format(email_count)
                         imap_sub_folder = os.path.join(email_folder_path, decoded_folder)
+                        filecounter = 0
                         for email_id in email_ids:
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
-                            raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
 
-                            # Parse raw email data
-                            email_message = email.message_from_bytes(raw_email)
-
-                            # Decode the email content
-                            if email_message.is_multipart():
-                                for part in email_message.walk():
-                                    content_type = part.get_content_type()
-                                    if content_type == 'text/plain' or content_type == 'text/html':
-                                        charset = part.get_content_charset()
-                                        if charset:
-                                            content = part.get_payload(decode=True).decode(charset)
-                                        else:
-                                            content = part.get_payload(decode=True).decode('utf-8', 'ignore')
-                                        break
-                            else:
-                                content_type = email_message.get_content_type()
-                                charset = email_message.get_content_charset()
-                                if charset:
-                                    content = email_message.get_payload(decode=True).decode(charset)
-                                else:
-                                    content = email_message.get_payload(decode=True).decode('utf-8', 'ignore')
+#                            # Parse raw email data
+#                            email_message = email.message_from_bytes(raw_email)
+#
+#                            # Decode the email content
+#                            if email_message.is_multipart():
+#                                for part in email_message.walk():
+#                                    content_type = part.get_content_type()
+#                                    if content_type == 'text/plain' or content_type == 'text/html':
+#                                        charset = part.get_content_charset()
+#                                        if charset:
+#                                            content = part.get_payload(decode=True).decode(charset)
+#                                        else:
+#                                            content = part.get_payload(decode=True).decode('utf-8', 'ignore')
+#                                        break
+#                            else:
+#                                content_type = email_message.get_content_type()
+#                                charset = email_message.get_content_charset()
+#                                if charset:
+#                                    content = email_message.get_payload(decode=True).decode(charset)
+#                                else:
+#                                    content = email_message.get_payload(decode=True).decode('utf-8', 'ignore')
 
                             # Create a filename for the EML file
                             email_id_nr = str(email_id)
                             email_filename = f"{imap_sub_folder}\Message_{email_id_nr.zfill(6)}.eml"
                             # Write the email message to a file
+                            filecounter += 1
+                            print(f"{filecounter} of {email_count}")
+                            print(f"Download Message: {email_filename.replace(output, '')}")
                             with open(email_filename, 'wb') as f:
                                 f.write(raw_email)
                             file_md5 = calculate_file_md5(email_filename)
                             # Print the file size in a human-readable format
                             file_size = os.path.getsize(email_filename)
                             logging.info(f"Downloaded {email_filename} ({convert_size(file_size)}) - MD5: {file_md5}")
-                            #email_data = imap_server.fetch(email_id, ['RFC822.SIZE'])
-                            #email_size = email_data[email_id][b'RFC822.SIZE']
-                            #folder_total_size += email_size
-                            #total_size += email_size
+                            delete_last_lines(2)
                             continue
                         logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.')
-                time.sleep(0.8)
+                # time.sleep(0.8)
                 delete_last_lines(1)
             except Exception as e:
                 delete_last_lines(1)
@@ -550,6 +554,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             break
         if choose.upper() == '1':
             username = input("Please enter the username/email address: ")
+            imapTestResult = 0
             domain = validate_email(username)
             if domain is not False:
                 usernameTestTimestamp = time.time()
@@ -557,10 +562,13 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 imapurl, sslport = get_imap_settings(domain)
         if choose.upper() == '2':
             password = input("Please enter the password: ")
+            imapTestResult = 0
         if choose.upper() == '3':
             imapurl = input("Please enter the URL to the IMAP server: ")
+            imapTestResult = 0
         if choose.upper() == '4':
             sslport = input("Please specify the port to the IMAP server: ")
+            imapTestResult = 0
         if choose.upper() == '5':
             output = input("Please enter the output path: ")
         if choose.upper() == '6':
@@ -580,7 +588,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             examiner = "-empty-value-"
             case = "-empty-value-"
             evidence = "-empty-value-"
-            print() # empty line
+            message = "credential file reset"
         if choose.upper() == "S":
             if imapTestResult == 0:
                 choose = "T"
@@ -599,7 +607,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                     usernameTestResult = 1
                 imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
                 message = "IMAP-Credentials tested"
-        if choose.upper() != "S" and choose.upper() != "T":
+        if choose.upper() != "C" and choose.upper() != "S" and choose.upper() != "T":
             if choose.upper() == "1" or choose.upper() == "2" or choose.upper() == "3" or choose.upper() == "4" or choose.upper() == "5" or choose.upper() == "6" or choose.upper() == "7" or choose.upper() == "8":
                 with open(pickle_file, 'wb') as f:
                     pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
@@ -608,10 +616,12 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 delete_last_lines(1)
 
         delete_last_lines(lines)
+        lines = 14
         if len(message) > 0:
             print(f'Message: {message}\n')
         else:
             print('Nothing changed\n')
+
 if __name__ == '__main__':
     os.system('mode con: cols=180 lines=45')
     parser = argparse.ArgumentParser(description={programTitle},
