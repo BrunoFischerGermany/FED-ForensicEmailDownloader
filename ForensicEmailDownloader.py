@@ -4,7 +4,12 @@ Licensed under MIT License, (c) B. Fischer
 import argparse
 import datetime
 import dns.resolver
+import chardet
+import codecs
 import email
+from email import policy
+from email.parser import BytesParser
+from eml_parser import EmlParser
 import hashlib
 import imapclient
 from imapclient import imap_utf7
@@ -179,7 +184,7 @@ computer user: {login_name}
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
         # Execute authentication
-        imap_server.login(username.encode('utf-8'), password)
+        imap_server.login(username, password)
         imap_server.select_folder('INBOX', readonly=True)
 
         folder_list = imap_server.list_folders()
@@ -206,7 +211,7 @@ computer user: {login_name}
     total_size = 0
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
-        imap_server.login(username.encode('utf-8'), password)
+        imap_server.login(username, password)
         folder_list = imap_server.list_folders()
         for folder in folder_list:
             try:
@@ -254,7 +259,7 @@ computer user: {login_name}
     total_email_download = 0
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
-        imap_server.login(username.encode('utf-8'), password)
+        imap_server.login(username, password)
         folder_list = imap_server.list_folders()
         for folder in folder_list:
             try:
@@ -277,28 +282,12 @@ computer user: {login_name}
                         filecounter = 0
                         for email_id in email_ids:
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
-
-#                            # Parse raw email data
-#                            email_message = email.message_from_bytes(raw_email)
-#
-#                            # Decode the email content
-#                            if email_message.is_multipart():
-#                                for part in email_message.walk():
-#                                    content_type = part.get_content_type()
-#                                    if content_type == 'text/plain' or content_type == 'text/html':
-#                                        charset = part.get_content_charset()
-#                                        if charset:
-#                                            content = part.get_payload(decode=True).decode(charset)
-#                                        else:
-#                                            content = part.get_payload(decode=True).decode('utf-8', 'ignore')
-#                                        break
-#                            else:
-#                                content_type = email_message.get_content_type()
-#                                charset = email_message.get_content_charset()
-#                                if charset:
-#                                    content = email_message.get_payload(decode=True).decode(charset)
-#                                else:
-#                                    content = email_message.get_payload(decode=True).decode('utf-8', 'ignore')
+                            result = chardet.detect(raw_email)
+                            charset = result['encoding']
+                            if charset is not None:
+                                raw_email_string = raw_email.decode(charset)
+                            else:
+                                raw_email_string = raw_email.decode()
 
                             # Create a filename for the EML file
                             email_id_nr = str(email_id)
@@ -307,20 +296,41 @@ computer user: {login_name}
                             filecounter += 1
                             print(f"{filecounter} of {email_count}")
                             print(f"Download Message: {email_filename.replace(output, '')}")
-                            with open(email_filename, 'wb') as f:
-                                f.write(raw_email)
+                            with codecs.open(email_filename, "w", encoding='utf-8') as f:
+                                f.write(raw_email_string)
+                            delete_last_lines(1)
                             file_md5 = calculate_file_md5(email_filename)
+                            print(f"MD5 Hash Message: {email_filename.replace(output, '')}")
                             # Print the file size in a human-readable format
                             file_size = os.path.getsize(email_filename)
+                            #eml_parser = EmlParser()
+                            # eml_data = open(email_filename, 'rb').read()
+                            # parsed_eml = eml_parser.decode_email_bytes(eml_data)
+                            # sender = parsed_eml['header']['from']
+                            # recipients = parsed_eml['header']['to']
+                            # subject = parsed_eml['header']['subject']
+                            # date_sent = parsed_eml['header']['date']
+                            # message_id = parsed_eml['header']['message-id']
+
+
+                            # with open(email_filename, 'rb') as fp:
+                            #    msg = BytesParser(policy=policy.default).parse(fp)
+                            # print(f"{email_filename}")
+                            # print('To:', msg['to'])
+                            # print('From:', msg['from'])
+                            # print('Subject:', msg['subject'])
+
+                            # time.sleep(1.5)
+                            # delete_last_lines(4)
                             logging.info(f"Downloaded {email_filename} ({convert_size(file_size)}) - MD5: {file_md5}")
                             delete_last_lines(2)
                             continue
                         logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.')
                 # time.sleep(0.8)
                 delete_last_lines(1)
-            except Exception as e:
+            except Exception as error:
                 delete_last_lines(1)
-                logging.error(f"Error when processing folder {decoded_folder}: {e}")
+                logging.error(f"Error when processing folder {decoded_folder}: {error}")
     except Exception as e:
         logging.error(f"Error when using imapclient: {e}")
     finally:
@@ -370,7 +380,7 @@ def test_imap_credentials(imapurl, sslport, username, password):
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
         # Execute authentication
-        imap_server.login(username.encode('utf-8'), password)
+        imap_server.login(username, password)
         imapTestResult = 1
         imapTestTimestamp = time.time()
         return imapTestResult, imapTestTimestamp
@@ -623,7 +633,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             print('Nothing changed\n')
 
 if __name__ == '__main__':
-    os.system('mode con: cols=180 lines=45')
+    os.system('mode con: cols=180 lines=50')
     parser = argparse.ArgumentParser(description={programTitle},
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog="""Example:
