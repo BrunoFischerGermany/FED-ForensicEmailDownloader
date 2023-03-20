@@ -216,10 +216,10 @@ computer user: {login_name}
         for folder in folder_list:
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
-                print(f'Reading folder {decoded_folder}')
+                print(f'Reading folder »{decoded_folder}«')
                 select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 if select_result is None:
-                    logging.error(f"Could not select folder {decoded_folder}")
+                    logging.error(f"Could not select folder »{decoded_folder}«")
                     continue
                 else:
                     email_ids = imap_server.search('ALL', None)
@@ -264,10 +264,10 @@ computer user: {login_name}
         for folder in folder_list:
             try:
                 decoded_folder = imap_utf7.decode(folder[2])
-                print(f'Downloading email from folder {decoded_folder}')
+                print(f'Downloading email from folder »{decoded_folder}«')
                 select_result = imap_server.select_folder(decoded_folder, readonly=True)
                 if select_result is None:
-                    logging.error(f"Could not select folder {decoded_folder}")
+                    logging.error(f"Could not select folder »{decoded_folder}«")
                     continue
                 else:
                     email_ids = imap_server.search('ALL', None)
