@@ -2,14 +2,13 @@
 Licensed under MIT License, (c) B. Fischer
 """
 import argparse
-import datetime
+from datetime import datetime
+from dateutil import parser
 import dns.resolver
 import chardet
 import codecs
 import email
-from email import policy
-from email.parser import BytesParser
-from eml_parser import EmlParser
+from email.header import decode_header
 import hashlib
 import imapclient
 from imapclient import imap_utf7
@@ -27,6 +26,55 @@ import urllib.request
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
 
+def clear_subject_for_filename(input_str):
+    # replace spaces with underscores
+    output_str = input_str.replace(" ", "_")
+    # Replace all characters that are not letters or numbers with nothing
+    output_str = ''.join(e for e in output_str if e.isalpha() or e.isdigit() or e == '-' or e == '_' or e == '.')
+    return output_str
+
+def check_filename(directory, filename):
+    if os.path.exists(os.path.join(directory, filename)):
+        # Count the number of the highest existing file with the same prefix
+        prefix = os.path.splitext(filename)[0]
+        max_num = 0
+        for file in os.listdir(directory):
+            if file.startswith(prefix):
+                try:
+                    file_num = int(file[len(prefix):file.index(".")])
+                    if file_num > max_num:
+                        max_num = file_num
+                except ValueError:
+                    pass
+        # Create new file name with higher number
+        new_filename = f"{prefix}{max_num + 1}.eml"
+    else:
+        new_filename = filename
+
+    return new_filename
+def extract_email_data(email_path):
+
+    with open(email_path, 'rb') as fhdl:
+        raw_email = fhdl.read()
+
+    email_message = email.message_from_bytes(raw_email)
+
+    subject = decode_header(email_message["Subject"])[0][0]
+    if isinstance(subject, bytes):
+        subject = subject.decode()
+    sender = decode_header(email_message["From"])[0][0]
+    if isinstance(sender, bytes):
+        sender = sender.decode()
+    receiver = decode_header(email_message["To"])[0][0]
+    if isinstance(sender, bytes):
+        receiver = receiver.decode()
+    date = decode_header(email_message["Date"])[0][0]
+    if isinstance(date, bytes):
+        date = date.decode()
+    msg_id = decode_header(email_message["Message-ID"])[0][0]
+    if isinstance(msg_id, bytes):
+        msg_id = msg_id.decode()
+    return msg_id, subject, sender, receiver, date
 def extract_charset(content_type):
     match = re.search('charset=([\w-]+)', content_type)
     if match:
@@ -135,7 +183,7 @@ def export_email(username, password, imapurl, sslport, output, examiner, case, e
 
     # don't check if the certificate is trusted by a certificate authority
     ssl_context.verify_mode = ssl.CERT_NONE
-    now = datetime.datetime.now()
+    now = datetime.now()
     folder_path = os.path.join(output, now.strftime("%Y-%m-%d_%H-%M-%S"))
     # Folder create
     os.makedirs(folder_path)
@@ -298,31 +346,21 @@ computer user: {login_name}
                             print(f"Download Message: {email_filename.replace(output, '')}")
                             with codecs.open(email_filename, "w", encoding='utf-8') as f:
                                 f.write(raw_email_string)
+                            msg_id, subject, sender, receiver, msg_date = extract_email_data(email_filename)
                             delete_last_lines(1)
                             file_md5 = calculate_file_md5(email_filename)
                             print(f"MD5 Hash Message: {email_filename.replace(output, '')}")
                             # Print the file size in a human-readable format
                             file_size = os.path.getsize(email_filename)
-                            #eml_parser = EmlParser()
-                            # eml_data = open(email_filename, 'rb').read()
-                            # parsed_eml = eml_parser.decode_email_bytes(eml_data)
-                            # sender = parsed_eml['header']['from']
-                            # recipients = parsed_eml['header']['to']
-                            # subject = parsed_eml['header']['subject']
-                            # date_sent = parsed_eml['header']['date']
-                            # message_id = parsed_eml['header']['message-id']
-
-
-                            # with open(email_filename, 'rb') as fp:
-                            #    msg = BytesParser(policy=policy.default).parse(fp)
-                            # print(f"{email_filename}")
-                            # print('To:', msg['to'])
-                            # print('From:', msg['from'])
-                            # print('Subject:', msg['subject'])
-
-                            # time.sleep(1.5)
-                            # delete_last_lines(4)
-                            logging.info(f"Downloaded {email_filename} ({convert_size(file_size)}) - MD5: {file_md5}")
+                            email_filename_new = f"{clear_subject_for_filename(subject)}.eml"
+                            email_filename_new = check_filename(imap_sub_folder, email_filename_new)
+                            os.rename(email_filename, f"{imap_sub_folder}\\{email_filename_new}")
+                            if os.path.exists(f"{imap_sub_folder}\\{email_filename_new}"):
+                                # Set Timestamp
+                                date_obj = parser.parse(msg_date)
+                                creation_time = date_obj.timestamp()
+                                os.utime(f"{imap_sub_folder}\\{email_filename_new}", (creation_time, creation_time))
+                            logging.info(f"Downloaded {imap_sub_folder}\\{email_filename_new} ({convert_size(file_size)}) - Sender: »{sender}« - Receiver: »{receiver}« - Subject »{subject}« - MD5: {file_md5}")
                             delete_last_lines(2)
                             continue
                         logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.')
@@ -634,7 +672,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
 
 if __name__ == '__main__':
     os.system('mode con: cols=180 lines=50')
-    parser = argparse.ArgumentParser(description={programTitle},
+    arg_parser = argparse.ArgumentParser(description={programTitle},
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
                                      epilog="""Example:
 {example1}
@@ -648,14 +686,14 @@ Example:
 {example1}
 {example2}
 """)
-    parser.add_argument('-i', '--imapurl', dest='imapurl', help='IMAP-URL', default=None)
-    parser.add_argument('-u', '--username', dest='username', help='Benutzername', default=None)
-    parser.add_argument('-p', '--password', dest='password', help='Passwort', default=None)
-    parser.add_argument('-o', '--output', dest='output', help='Sicherungspfad', default=None)
-    parser.add_argument('-s', '--sslport', dest='sslport', help='SSL-Port', default=None)
-    parser.add_argument('-x', '--examiner', dest='examiner', help='Examiner', default=None)
-    parser.add_argument('-c', '--case', dest='case', help='Fallnummer', default=None)
-    parser.add_argument('-e', '--evidence', dest='evidence', help='Asservatsnummer', default=None)
-    args = parser.parse_args()
+    arg_parser.add_argument('-i', '--imapurl', dest='imapurl', help='IMAP-URL', default=None)
+    arg_parser.add_argument('-u', '--username', dest='username', help='Benutzername', default=None)
+    arg_parser.add_argument('-p', '--password', dest='password', help='Passwort', default=None)
+    arg_parser.add_argument('-o', '--output', dest='output', help='Sicherungspfad', default=None)
+    arg_parser.add_argument('-s', '--sslport', dest='sslport', help='SSL-Port', default=None)
+    arg_parser.add_argument('-x', '--examiner', dest='examiner', help='Examiner', default=None)
+    arg_parser.add_argument('-c', '--case', dest='case', help='Fallnummer', default=None)
+    arg_parser.add_argument('-e', '--evidence', dest='evidence', help='Asservatsnummer', default=None)
+    args = arg_parser.parse_args()
 
     main(**vars(args))
