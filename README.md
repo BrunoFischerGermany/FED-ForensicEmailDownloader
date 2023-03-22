@@ -11,6 +11,9 @@
 
 It's a Python based Forensic IMAP Download Script. 
 
+## Screenshot
+![Model](https://raw.githubusercontent.com/BrunoFischerGermany/FED-ForensicEmailDownloader/main/programm-main.png)
+
 ## Usage/Examples
 
 ```
