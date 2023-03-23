@@ -15,7 +15,7 @@ It's a Python based Forensic IMAP Download Script.
 
 ```
 python3 ForensicEmailDownloader.py --username user@example.com --password mypassword --imapurl imap.example.com --output C:\\tmp
-python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.example.com -o /tmp/mails
+python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.example.com -o /tmp/mails --rangebeginn 2018-01-01 --rangeend 2018-12-31
 
 --username / -u             Username/Emai-Adress
 --password / -p             Password 
@@ -25,8 +25,8 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 --examiner / -x             Name of examiner
 --case     / -c             Name of case
 --evidence / -e             evidence number
---rangebegin                Begin of the timerange
---rangeend                  End of the timerange
+--rangebegin                Begin of the timerange (YYYY-MM-DD)
+--rangeend                  End of the timerange   (YYYY-MM-DD)
 ```
 ## Known Errors
 - email addresses with german umlauts like ä,ö,ü in the domain are not accepted
