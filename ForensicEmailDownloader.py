@@ -4,6 +4,7 @@ Licensed under MIT License, (c) B. Fischer
 import argparse
 from datetime import datetime
 from dateutil import parser
+import dateutil.parser
 import dns.resolver
 import chardet
 import codecs
@@ -29,14 +30,17 @@ import xml.etree.ElementTree as ET
 def clear_subject_for_filename(input_str):
     # replace spaces with underscores
     output_str = input_str.replace(" ", "_")
+    output_str = output_str.replace("\\n", "")
+    output_str = output_str.replace("\\r", "")
     # Replace all characters that are not letters or numbers with nothing
-    output_str = ''.join(e for e in output_str if e.isalpha() or e.isdigit() or e == '-' or e == '_' or e == '.')
+    output_str = re.sub(r'[^A-Za-z0-9_-]', '', output_str)
+
     return output_str
 
 def check_filename(directory, filename):
     if os.path.exists(os.path.join(directory, filename)):
         # Count the number of the highest existing file with the same prefix
-        prefix = os.path.splitext(filename)[0]
+        prefix, extention = os.path.splitext(filename)
         max_num = 0
         for file in os.listdir(directory):
             if file.startswith(prefix):
@@ -47,34 +51,83 @@ def check_filename(directory, filename):
                 except ValueError:
                     pass
         # Create new file name with higher number
-        new_filename = f"{prefix}{max_num + 1}.eml"
+        new_filename = f"{prefix}{max_num + 1}{extention}"
     else:
         new_filename = filename
 
     return new_filename
 def extract_email_data(email_path):
-
     with open(email_path, 'rb') as fhdl:
         raw_email = fhdl.read()
 
     email_message = email.message_from_bytes(raw_email)
 
-    subject = decode_header(email_message["Subject"])[0][0]
+    if "Subject" not in email_message:
+        subject = "email without subject"
+    elif decode_header(email_message["Subject"]) is None:
+        subject = "email without subject"
+    elif len(decode_header(email_message["Subject"])) == 0:
+        subject = "email without subject"
+    else:
+        subject = decode_header(email_message["Subject"])[0][0]
+
     if isinstance(subject, bytes):
-        subject = subject.decode()
-    sender = decode_header(email_message["From"])[0][0]
+        result = chardet.detect(subject)
+        charset = result['encoding']
+        if charset == "Windows-1254":
+            subject = subject.decode('utf-8')
+        elif charset is not None:
+            subject = subject.decode(charset)
+        else:
+            subject = subject.decode()
+
+    if "From" not in email_message:
+        sender = "email without from"
+    elif decode_header(email_message["From"]) is None:
+        sender = "email without from"
+    elif len(decode_header(email_message["From"])) == 0:
+        sender = "email without from"
+    else:
+        sender = decode_header(email_message["From"])[0][0]
     if isinstance(sender, bytes):
-        sender = sender.decode()
-    receiver = decode_header(email_message["To"])[0][0]
-    if isinstance(sender, bytes):
-        receiver = receiver.decode()
-    date = decode_header(email_message["Date"])[0][0]
+        result = chardet.detect(sender)
+        charset = result['encoding']
+        if charset is not None:
+            sender = sender.decode(charset)
+        else:
+            sender = sender.decode()
+
+    if "To" not in email_message:
+        receiver = "email without to"
+    elif decode_header(email_message["To"]) is None:
+        receiver = "email without receiver"
+    elif len(decode_header(email_message["To"])) == 0:
+        receiver = "email without to"
+    else:
+        receiver = decode_header(email_message["To"])[0][0]
+    if isinstance(receiver, bytes):
+        result = chardet.detect(receiver)
+        charset = result['encoding']
+        if charset is not None:
+            receiver = receiver.decode(charset)
+        else:
+            receiver = receiver.decode()
+
+    if "Date" not in email_message:
+        date = "1900-01-01 00:00:00 +0100"
+    elif decode_header(email_message["Date"]) is None:
+        date = "1900-01-01 00:00:00 +0100"
+    elif len(decode_header(email_message["Date"])) == 0:
+        date = "1900-01-01 00:00:00 +0100"
+    else:
+        date = decode_header(email_message["Date"])[0][0]
     if isinstance(date, bytes):
         date = date.decode()
-    msg_id = decode_header(email_message["Message-ID"])[0][0]
-    if isinstance(msg_id, bytes):
-        msg_id = msg_id.decode()
-    return msg_id, subject, sender, receiver, date
+    subject = re.sub(r'[\n\r\t\v\f]', '', subject)
+    sender = re.sub(r'[\n\r\t\v\f]', '', sender)
+    receiver = re.sub(r'[\n\r\t\v\f]', '', receiver)
+
+    return subject, sender, receiver, date
 def extract_charset(content_type):
     match = re.search('charset=([\w-]+)', content_type)
     if match:
@@ -173,7 +226,7 @@ def delete_last_lines(n=1):
         # Delete the line with spaces
         sys.stdout.write('\033[K')
 
-def export_email(username, password, imapurl, sslport, output, examiner, case, evidence, osSystem, osVersion, login_name):
+def export_email(username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend, osSystem, osVersion, login_name):
     global lines
     starttime = time.time()
     ssl_context = ssl.create_default_context()
@@ -201,6 +254,26 @@ def export_email(username, password, imapurl, sslport, output, examiner, case, e
     else:
         print(f'The log file  {logging_file} will created.')
     lines += 1
+    if rangebegin == "-empty-value-" and rangeend == "-empty-value-":
+        range_string = "ALL"
+        range_string_logfile = "Time-Range: ALL emails"
+    if rangebegin != "-empty-value-" and rangeend == "-empty-value-":
+        begin_obj = parser.parse(rangebegin)
+        start_date_str = begin_obj.strftime('%d-%b-%Y')
+        range_string = '(SINCE {0})'.format(start_date_str)
+        range_string_logfile = f"Time-Range: all emails SINCE {begin_obj}"
+    if rangebegin == "-empty-value-" and rangeend != "-empty-value-":
+        end_obj = parser.parse(rangeend)
+        end_date_str = end_obj.strftime('%d-%b-%Y')
+        range_string = '(BEFORE {0})'.format(end_date_str)
+        range_string_logfile = f"Time-Range: all emails BEFORE {end_obj}"
+    if rangebegin != "-empty-value-" and rangeend != "-empty-value-":
+        begin_obj = parser.parse(rangebegin)
+        start_date_str = begin_obj.strftime('%d-%b-%Y')
+        end_obj = parser.parse(rangeend)
+        end_date_str = end_obj.strftime('%d-%b-%Y')
+        range_string = '(SINCE {0} BEFORE {1})'.format(start_date_str, end_date_str)
+        range_string_logfile = f"Time-Range: all emails SINCE {begin_obj} BEFORE {end_obj}"
     startText = f"""{programTitle}
 case number: {case}
 evidence number: {evidence}
@@ -211,6 +284,7 @@ Username / Email-address: »{username}«
 Password: »{password}«
 IMAP-Server: »{imapurl}«
 IMAP-SSL-Port: »{sslport}«
+{range_string_logfile}
 
 operating system: {osSystem}
 operating system version: {osVersion}
@@ -270,7 +344,11 @@ computer user: {login_name}
                     logging.error(f"Could not select folder »{decoded_folder}«")
                     continue
                 else:
-                    email_ids = imap_server.search('ALL', None)
+                    # if range_string == "ALL":
+                    #     email_ids = imap_server.search('ALL', None)
+                    # else:
+                    # email_ids = imap_server.search(None, f'{range_string}')
+                    email_ids = imap_server.search(f'{range_string}', None)
                     if not email_ids:
                         print(f'No emails in folder »{decoded_folder}«.')
                         logging.info(f'no emails found in the folder »{decoded_folder}«')
@@ -304,6 +382,7 @@ computer user: {login_name}
         imap_server.logout()
     with open(logging_file, 'a', encoding='utf-8') as f:
         f.write("\nDownload all Emails to eml\n")
+        f.write(f"\n{range_string_logfile}\n")
     total_email_download = 0
     imap_server = imapclient.IMAPClient(host=imapurl, port=sslport, ssl_context=ssl_context)
     try:
@@ -318,9 +397,13 @@ computer user: {login_name}
                     logging.error(f"Could not select folder »{decoded_folder}«")
                     continue
                 else:
-                    email_ids = imap_server.search('ALL', None)
+                    # if range_string == "":
+                    #     email_ids = imap_server.search('ALL', None)
+                    # else:
+                    email_ids = imap_server.search(f'{range_string}', None)
+                    # email_ids = imap_server.search(None, range_string)
                     if not email_ids:
-                        logging.info(f'no emails found in the folder »{decoded_folder}«')
+                        logging.info(f'no emails found in the folder »{decoded_folder}«\n\n')
                     else:
                         folder_total_size = 0
                         email_count = len(email_ids)
@@ -332,10 +415,14 @@ computer user: {login_name}
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
                             result = chardet.detect(raw_email)
                             charset = result['encoding']
-                            if charset is not None:
+                            logging.info(f"Charset {charset}")
+                            if charset == "Windows-1254":
+                                raw_email_string = raw_email.decode('utf-8')
+                            elif charset is not None:
                                 raw_email_string = raw_email.decode(charset)
                             else:
                                 raw_email_string = raw_email.decode()
+
 
                             # Create a filename for the EML file
                             email_id_nr = str(email_id)
@@ -346,24 +433,28 @@ computer user: {login_name}
                             print(f"Download Message: {email_filename.replace(output, '')}")
                             with codecs.open(email_filename, "w", encoding='utf-8') as f:
                                 f.write(raw_email_string)
-                            msg_id, subject, sender, receiver, msg_date = extract_email_data(email_filename)
+
+                            subject, sender, receiver, msg_date = extract_email_data(email_filename)
                             delete_last_lines(1)
                             file_md5 = calculate_file_md5(email_filename)
                             print(f"MD5 Hash Message: {email_filename.replace(output, '')}")
-                            # Print the file size in a human-readable format
                             file_size = os.path.getsize(email_filename)
                             email_filename_new = f"{clear_subject_for_filename(subject)}.eml"
                             email_filename_new = check_filename(imap_sub_folder, email_filename_new)
                             os.rename(email_filename, f"{imap_sub_folder}\\{email_filename_new}")
                             if os.path.exists(f"{imap_sub_folder}\\{email_filename_new}"):
-                                # Set Timestamp
-                                date_obj = parser.parse(msg_date)
-                                creation_time = date_obj.timestamp()
-                                os.utime(f"{imap_sub_folder}\\{email_filename_new}", (creation_time, creation_time))
+                                delete_last_lines(1)
+                                print(f"Rename to Subject.eml:  {email_filename_new.replace(output, '')}")
+                            # Set Timestamp
+
+                            # date_obj = parser.parse(msg_date)
+
+                            # creation_time = date_obj.timestamp()
+                            # os.utime(f"{imap_sub_folder}\\{email_filename_new}", (creation_time, creation_time))
                             logging.info(f"Downloaded {imap_sub_folder}\\{email_filename_new} ({convert_size(file_size)}) - Sender: »{sender}« - Receiver: »{receiver}« - Subject »{subject}« - MD5: {file_md5}")
                             delete_last_lines(2)
                             continue
-                        logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.')
+                        logging.info(f'{email_count_format} emails downloaded in the folder »{imap_sub_folder}«.\n\n')
                 # time.sleep(0.8)
                 delete_last_lines(1)
             except Exception as error:
@@ -434,16 +525,13 @@ def test_imap_credentials(imapurl, sslport, username, password):
 #########################
 # global variables
 #########################
-lines = 14
+lines = 16
 thisprogram = sys.argv[0]
 file_path = os.path.realpath(thisprogram)
 thisprogram = os.path.basename(file_path)
-programTitle = """ ______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
-|  ____|  ____|  __ \       |  ____|                     (_)    |  ____|               (_) |  __ \                    | |               | |          
-| |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
-|  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
-| |    | |____| |__| |      | | | (_) | | |  __/ | | \__ \ | (__| |____| | | | | | (_| | | | |__| | (_) \ V  V /| | | | | (_) | (_| | (_| |  __/ |   
-|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.4-beta 
+programTitle = """ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+
+ |F|o|r|e|n|s|i|c|E|m|a|i|l|D|o|w|n|l|o|a|d|e|r| |V|0|.|4|-|b|e|t|a|
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+ 
 
 (C) 2023 - BrunoFischerBerlin - MIT Licence
 Github: https://github.com/BrunoFischerGermany/FED-ForensicEmailDownloader
@@ -456,7 +544,7 @@ example2 = f"python3 {thisprogram} -u user@example.com -p mypassword -i imap.exa
 #############################
 # Main Window
 #############################
-def main(output=None, username=None, password=None, imapurl=None, sslport=None, evidence=None, examiner=None, case=None):
+def main(output=None, username=None, password=None, imapurl=None, sslport=None, evidence=None, examiner=None, case=None, rangebegin=None, rangeend=None):
 
     global lines
     usernameTestTimestamp = None
@@ -479,7 +567,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         print('√ Credential File found.\n')
         with open(pickle_file, 'rb') as f:
             var_list = pickle.load(f)
-        username, password, imapurl, sslport, output, examiner, case, evidence = var_list
+        username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend = var_list
    # Check Args found. Show and Show them.
 
     # check Connection to IMAP Server. If False, then check IMAPUrl, SSLPort, username and password
@@ -532,6 +620,18 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         evidence = args.evidence
     if not evidence:
         evidence = "-empty-value-"
+    if args.rangebegin:
+        rangebegin = args.rangebegin
+        begin_obj = parser.parse(rangebegin)
+        rangebegin = begin_obj.strftime("%Y-%m-%d")
+    if not rangebegin:
+        rangebegin = "-empty-value-"
+    if args.rangeend:
+        rangeend = args.rangeend
+        end_obj = parser.parse(rangeend)
+        rangeend = end_obj.strftime("%Y-%m-%d")
+    if not rangeend:
+        rangeend = "-empty-value-"
 
     # Get System Data
 
@@ -592,11 +692,13 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         print(f'[6] Examiner:\t\t\t\t{examiner}')
         print(f'[7] Case:\t\t\t\t{case}')
         print(f'[8] Evicence:\t\t\t\t{evidence}')
+        print(f'[B] Time Range Begin:\t\t\t{rangebegin}')
+        print(f'[E] Time Range End:\t\t\t{rangeend}')
         print(f'[C] clear credential file')
         print(f'[T] test imap credentials\t\t{imapTestString}')
         print(f'[S] save email data to output path')
 
-        choose = input('Please select an option [1-8; S; T] (q to exit): ')
+        choose = input('Please select an option [1-8; B; E; C, S; T] (q to exit): ')
         # End loop when 'q' is entered
         if choose == 'q':
             break
@@ -625,6 +727,23 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             case = input("Please specify the case number: ")
         if choose.upper() == '8':
             evidence = input("Please specify the evidence object number: ")
+        if choose.upper() == 'B':
+            rangebegin = input("Please specify the begin date of the time range (YYYY-MM-DD): ")
+            if len(rangebegin) > 0 and rangebegin != " ":
+                begin_obj = parser.parse(rangebegin)
+                rangebegin = begin_obj.strftime("%Y-%m-%d")
+            else:
+                rangebegin = "-empty-value-"
+        if choose.upper() == 'E':
+            rangeend = input("Please specify the end date of the time range (YYYY-MM-DD): ")
+            if len(rangeend) > 0 and rangeend != " ":
+                end_obj = parser.parse(rangeend)
+                rangeend = end_obj.strftime("%Y-%m-%d")
+            else:
+                rangeend = "-empty-value-"
+        if rangebegin > rangeend:
+            rangeend = "-empty-value-"
+            message += "The End Range date must biger then the range begin range"
         if choose.upper() == "C":
             with open(pickle_file, "w") as f:
                 f.write("")
@@ -636,13 +755,15 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             examiner = "-empty-value-"
             case = "-empty-value-"
             evidence = "-empty-value-"
+            rangebegin = "-empty-value-"
+            rangeend = "-empty-value-"
             message = "credential file reset"
-        if choose.upper() == "S":
+        if choose.upper() == 'S':
             if imapTestResult == 0:
                 choose = "T"
             else:
                 message = "execute export"
-                export_email(username, password, imapurl, sslport, output, examiner, case, evidence, osSystem, osVersion, login_name)
+                export_email(username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend, osSystem, osVersion, login_name)
         if choose.upper() == "T":
             # Check Credentials not empty!
             if(username == "-empty-value-" or password == "-empty-value-" or imapurl == "-empty-value-"):
@@ -656,15 +777,15 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
                 message = "IMAP-Credentials tested"
         if choose.upper() != "C" and choose.upper() != "S" and choose.upper() != "T":
-            if choose.upper() == "1" or choose.upper() == "2" or choose.upper() == "3" or choose.upper() == "4" or choose.upper() == "5" or choose.upper() == "6" or choose.upper() == "7" or choose.upper() == "8":
+            if choose.upper() == "1" or choose.upper() == "2" or choose.upper() == "3" or choose.upper() == "4" or choose.upper() == "5" or choose.upper() == "6" or choose.upper() == "7" or choose.upper() == "8" or choose.upper() == "B" or choose.upper() == "E":
                 with open(pickle_file, 'wb') as f:
-                    pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence], f)
+                    pickle.dump([username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend], f)
                     message = "update credential file"
             if len(message) > 0:
                 delete_last_lines(1)
 
         delete_last_lines(lines)
-        lines = 14
+        lines = 16
         if len(message) > 0:
             print(f'Message: {message}\n')
         else:
@@ -687,13 +808,15 @@ Example:
 {example2}
 """)
     arg_parser.add_argument('-i', '--imapurl', dest='imapurl', help='IMAP-URL', default=None)
-    arg_parser.add_argument('-u', '--username', dest='username', help='Benutzername', default=None)
-    arg_parser.add_argument('-p', '--password', dest='password', help='Passwort', default=None)
-    arg_parser.add_argument('-o', '--output', dest='output', help='Sicherungspfad', default=None)
+    arg_parser.add_argument('-u', '--username', dest='username', help='username', default=None)
+    arg_parser.add_argument('-p', '--password', dest='password', help='password', default=None)
+    arg_parser.add_argument('-o', '--output', dest='output', help='output Path', default=None)
     arg_parser.add_argument('-s', '--sslport', dest='sslport', help='SSL-Port', default=None)
     arg_parser.add_argument('-x', '--examiner', dest='examiner', help='Examiner', default=None)
-    arg_parser.add_argument('-c', '--case', dest='case', help='Fallnummer', default=None)
-    arg_parser.add_argument('-e', '--evidence', dest='evidence', help='Asservatsnummer', default=None)
+    arg_parser.add_argument('-c', '--case', dest='case', help='Case', default=None)
+    arg_parser.add_argument('-e', '--evidence', dest='evidence', help='Evidencenumber', default=None)
+    arg_parser.add_argument('--rangebegin', dest='rangebegin', help='Begin of the timerange', default=None)
+    arg_parser.add_argument('--rangeend', dest='rangeend', help='End of the timerange', default=None)
     args = arg_parser.parse_args()
 
     main(**vars(args))

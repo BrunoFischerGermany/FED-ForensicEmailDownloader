@@ -1,12 +1,9 @@
 
 # FED - ForensicEmailDownloader
 ```
- ______ ______ _____         ______                       _      ______                 _ _ _____                      _                 _           
-|  ____|  ____|  __ \       |  ____|                     (_)    |  ____|               (_) |  __ \                    | |               | |          
-| |__  | |__  | |  | |______| |__ ___  _ __ ___ _ __  ___ _  ___| |__   _ __ ___   __ _ _| | |  | | _____      ___ __ | | ___   __ _  __| | ___ _ __ 
-|  __| |  __| | |  | |______|  __/ _ \| '__/ _ \ '_ \/ __| |/ __|  __| | '_ ` _ \ / _` | | | |  | |/ _ \ \ /\ / / '_ \| |/ _ \ / _` |/ _` |/ _ \ '__|
-| |    | |____| |__| |      | | | (_) | | |  __/ | | \__ \ | (__| |____| | | | | | (_| | | | |__| | (_) \ V  V /| | | | | (_) | (_| | (_| |  __/ |   
-|_|    |______|_____/       |_|  \___/|_|  \___|_| |_|___/_|\___|______|_| |_| |_|\__,_|_|_|_____/ \___/ \_/\_/ |_| |_|_|\___/ \__,_|\__,_|\___|_|    Version 0.2-alpha 
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+
+ |F|o|r|e|n|s|i|c|E|m|a|i|l|D|o|w|n|l|o|a|d|e|r| |V|0|.|4|-|b|e|t|a|
+ +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+-+ 
 ```
 
 It's a Python based Forensic IMAP Download Script. 
@@ -28,14 +25,17 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 --examiner / -x             Name of examiner
 --case     / -c             Name of case
 --evidence / -e             evidence number
+--rangebegin                Begin of the timerange
+--rangeend                  End of the timerange
 ```
 ## Known Errors
 - email addresses with german umlauts like ä,ö,ü in the domain are not accepted
-- errors in log file
 - no 2FA
 
 ## Future
-- Time Range for Email-Download
+- tidy up the code
+- split log-file to log-file and report
+- Make 2FA possible
 
 ## Authors
 
