@@ -415,7 +415,6 @@ computer user: {login_name}
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
                             result = chardet.detect(raw_email)
                             charset = result['encoding']
-                            logging.info(f"Charset {charset}")
                             if charset == "Windows-1254":
                                 raw_email_string = raw_email.decode('utf-8')
                             elif charset is not None:
