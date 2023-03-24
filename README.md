@@ -41,6 +41,12 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 - email addresses with german umlauts like ä,ö,ü in the domain are not accepted
 - no 2FA
 
+## Create an own exe
+´ pyinstaller.exe --onefile .\ForensicEmailDownloader.py --name "ForensicEmailDownloader" --icon .\favicon.ico ´
+
+## Malware Alert
+I know this, but its a false positive for my releases. Feel free to create your own exe. see above. 
+
 ## Future
 - tidy up the code
 - extract date from email and set it to eml file (Creation, modification and access timestamps) 
