@@ -74,10 +74,11 @@ def extract_email_data(email_path):
     if isinstance(subject, bytes):
         result = chardet.detect(subject)
         charset = result['encoding']
-        if charset is not None:
+        # chardet detect windows-1254 but it is utf-8
+        try:
             subject = subject.decode(charset.lower())
-        else:
-            subject = subject.decode()
+        except:
+            subject = subject.decode('utf-8')
 
     if "From" not in email_message:
         sender = "email without from"
@@ -412,10 +413,10 @@ computer user: {login_name}
                             raw_email = imap_server.fetch([email_id], ['RFC822'])[email_id][b'RFC822']
                             result = chardet.detect(raw_email)
                             charset = result['encoding']
-                            if charset is not None:
+                            try:
                                 raw_email_string = raw_email.decode(charset.lower())
-                            else:
-                                raw_email_string = raw_email.decode()
+                            except:
+                                raw_email_string = raw_email.decode('utf-8')
 
                             # Create a filename for the EML file
                             email_id_nr = str(email_id)
