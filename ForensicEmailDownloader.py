@@ -4,7 +4,6 @@ Licensed under MIT License, (c) B. Fischer
 import argparse
 from datetime import datetime
 from dateutil import parser
-import dateutil.parser
 import dns.resolver
 import chardet
 import codecs
@@ -26,7 +25,6 @@ import time
 import urllib.request
 from urllib.parse import urlparse
 import xml.etree.ElementTree as ET
-
 def clear_subject_for_filename(input_str):
     # replace spaces with underscores
     output_str = input_str.replace(" ", "_")
@@ -37,7 +35,6 @@ def clear_subject_for_filename(input_str):
     if len(output_str) == 0:
         output_str = "email without subject"
     return output_str
-
 def check_filename(path, filename):
     # Split the filename into its base name and extension
     basename, extension = os.path.splitext(filename)
@@ -135,7 +132,7 @@ def extract_charset(content_type):
         return match.group(1)
     else:
         return 'utf-8'
-def formatDuration(duration):
+def formatduration(duration):
     if duration >= 3600:
         hours = int(duration // 3600)
         minutes = int((duration % 3600) // 60)
@@ -160,7 +157,7 @@ def get_imap_settings(domain):
     if response.status_code != 200:
         return imapurl, sslport
     else:
-    # Extrahieren der URL für die XML-Konfigurationsdatei
+        # extract url for XML-configurationsfile
         root = ET.fromstring(response.content)
         for incoming_server in root.findall("./emailProvider/incomingServer[@type='imap']"):
             if incoming_server.find("socketType").text == "SSL":
@@ -186,16 +183,16 @@ def validate_email(email):
     domain = urlparse("http://" + domain).netloc.split(":")[0]
     return domain
 def convert_size(size_bytes):
-    # Definiere die Namen der Maßeinheiten und ihre Größen in Bytes
+    # Define the names of the measurement units and their sizes in bytes
     units = ["B", "KB", "MB", "GB", "TB"]
     sizes = [1024 ** i for i in range(len(units))]
 
-    # Finde die passende Maßeinheit
+    # Find the appropriate unit of measurement
     for i, size in enumerate(sizes[::-1]):
         if size_bytes >= size:
             return f"{round(size_bytes / size, 2)} {units[len(units) - i - 1]}"
 
-    # Wenn die Größe kleiner als 1 Byte ist
+    # If the size is smaller than 1 byte
     return f"{size_bytes} B"
 
 def calculate_file_md5(filename):
@@ -369,7 +366,6 @@ computer user: {login_name}
                             continue
                         logging.info(f'{email_count_format} emails [Size: {convert_size(folder_total_size)}] found in the folder »{decoded_folder}«.')
                     delete_last_lines(1)
-                #time.sleep(0.8)
                 delete_last_lines(1)
             except Exception as e:
                 logging.error(f"Error when processing folder {decoded_folder}: {e}")
@@ -421,7 +417,7 @@ computer user: {login_name}
                             else:
                                 raw_email_string = raw_email.decode()
 
-                           # Create a filename for the EML file
+                            # Create a filename for the EML file
                             email_id_nr = str(email_id)
                             email_filename = f"{imap_sub_folder}\Message_{email_id_nr.zfill(6)}.eml"
                             # Write the email message to a file
@@ -475,10 +471,10 @@ computer user: {login_name}
         lines += 1
         endtime = time.time()
         duration = endtime - starttime
-        durationString = formatDuration(duration)
-        ## show during
-        print(f"Duration of processing: {durationString}")
-        logging.info(f"Duration of processing: {durationString}")
+        durationstring = formatduration(duration)
+        # show during
+        print(f"Duration of processing: {durationstring}")
+        logging.info(f"Duration of processing: {durationstring}")
         lines += 1
         # Wait until ends
         try:
@@ -509,16 +505,16 @@ def test_imap_credentials(imapurl, sslport, username, password):
     try:
         # Execute authentication
         imap_server.login(username, password)
-        imapTestResult = 1
+        imaptestresult = 1
         imapTestTimestamp = time.time()
-        return imapTestResult, imapTestTimestamp
+        return imaptestresult, imapTestTimestamp
     except Exception as e:
-        imapTestResult = 0
+        imaptestresult = 0
         imapTestTimestamp = time.time()
-        return imapTestResult, imapTestTimestamp
+        return imaptestresult, imapTestTimestamp
 
     finally:
-        # Verbindung zum IMAP-Server schließen
+        # Close Connenection to IMAP server
         imap_server.logout()
 
 #########################
@@ -551,7 +547,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
     usernameTestTimestamp = None
     usernameTestResult = 0
     imapTestTimestamp = None
-    imapTestResult = 0
+    imaptestresult = 0
     try:
         urllib.request.urlopen('https://www.google.com', timeout=5)
         print("√ Internet connection exists.\n")
@@ -562,15 +558,19 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         except SyntaxError:
             pass
         exit()
-    # Check an credential.file (credential.pkl) exists in the same folder of this program
+    # Check a credential.file (credential.pkl) exists in the same folder of this program
     pickle_file = "credential.pkl"
     if os.path.exists(pickle_file) and os.access(pickle_file, os.W_OK) and os.path.getsize(pickle_file) > 0:
         print('√ Credential File found.\n')
         with open(pickle_file, 'rb') as f:
             var_list = pickle.load(f)
-        username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend = var_list
-   # Check Args found. Show and Show them.
-
+        # username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend = var_list
+        # username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend = var_list + (None,) * (10 - len(var_list))
+        username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend = list(var_list) + [None] * (10 - len(var_list))
+        if rangebegin is None:
+            rangebegin = "-empty-value-"
+        if rangeend is None:
+            rangeend = "-empty-value-"
     # check Connection to IMAP Server. If False, then check IMAPUrl, SSLPort, username and password
     if args.username:
         username = args.username
@@ -652,11 +652,10 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         osSystem = "Other"
         osVersion = "Other"
 
-    ## Print out System data
+    # Print out System data
     print(f'operating system: {osSystem}')
     print(f'operating system version: {osVersion}')
     print(f'computer user: {login_name}\n')
-
     print("Please fill out the empty values!\n")
     ########################################
     # Print out the defaults
@@ -664,9 +663,9 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
     while True:
         if imapTestTimestamp is not None:
             imapTestString = "Result: " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(imapTestTimestamp))
-            if imapTestResult == 0:
+            if imaptestresult == 0:
                 imapTestString += " failed "
-            if imapTestResult == 1:
+            if imaptestresult == 1:
                 imapTestString += " successful "
         else:
             imapTestString = "Result: Credential not tested yet"
@@ -698,14 +697,13 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
         print(f'[C] clear credential file')
         print(f'[T] test imap credentials\t\t{imapTestString}')
         print(f'[S] save email data to output path')
-
         choose = input('Please select an option [1-8; B; E; C, S; T] (q to exit): ')
         # End loop when 'q' is entered
-        if choose == 'q':
+        if choose.upper() == 'Q':
             break
         if choose.upper() == '1':
             username = input("Please enter the username/email address: ")
-            imapTestResult = 0
+            imaptestresult = 0
             domain = validate_email(username)
             if domain is not False:
                 usernameTestTimestamp = time.time()
@@ -713,13 +711,13 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 imapurl, sslport = get_imap_settings(domain)
         if choose.upper() == '2':
             password = input("Please enter the password: ")
-            imapTestResult = 0
+            imaptestresult = 0
         if choose.upper() == '3':
             imapurl = input("Please enter the URL to the IMAP server: ")
-            imapTestResult = 0
+            imaptestresult = 0
         if choose.upper() == '4':
             sslport = input("Please specify the port to the IMAP server: ")
-            imapTestResult = 0
+            imaptestresult = 0
         if choose.upper() == '5':
             output = input("Please enter the output path: ")
         if choose.upper() == '6':
@@ -760,14 +758,14 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
             rangeend = "-empty-value-"
             message = "credential file reset"
         if choose.upper() == 'S':
-            if imapTestResult == 0:
+            if imaptestresult == 0:
                 choose = "T"
             else:
                 message = "execute export"
                 export_email(username, password, imapurl, sslport, output, examiner, case, evidence, rangebegin, rangeend, osSystem, osVersion, login_name)
         if choose.upper() == "T":
             # Check Credentials not empty!
-            if(username == "-empty-value-" or password == "-empty-value-" or imapurl == "-empty-value-"):
+            if username == "-empty-value-" or password == "-empty-value-" or imapurl == "-empty-value-":
                 message = "Please check the IMAP-Credentials like Username, Password, IMAP-Server. This should not be empty!"
             else:
                 # Test the Credentials
@@ -775,7 +773,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
                 if domain is not False:
                     usernameTestTimestamp = time.time()
                     usernameTestResult = 1
-                imapTestResult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
+                imaptestresult, imapTestTimestamp = test_imap_credentials(imapurl, sslport, username, password)
                 message = "IMAP-Credentials tested"
         if choose.upper() != "C" and choose.upper() != "S" and choose.upper() != "T":
             if choose.upper() == "1" or choose.upper() == "2" or choose.upper() == "3" or choose.upper() == "4" or choose.upper() == "5" or choose.upper() == "6" or choose.upper() == "7" or choose.upper() == "8" or choose.upper() == "B" or choose.upper() == "E":
@@ -794,9 +792,7 @@ def main(output=None, username=None, password=None, imapurl=None, sslport=None, 
 
 if __name__ == '__main__':
     os.system('mode con: cols=180 lines=50')
-    arg_parser = argparse.ArgumentParser(description={programTitle},
-                                     formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     epilog="""Example:
+    arg_parser = argparse.ArgumentParser(description={programTitle}, formatter_class=argparse.RawDescriptionHelpFormatter, epilog="""Example:
 {example1}
 {example2}
 
