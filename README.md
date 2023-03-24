@@ -42,7 +42,7 @@ python3 ForensicEmailDownloader.py -u user@example.com -p mypassword -i imap.exa
 - no 2FA
 
 ## Create an own exe
-´ pyinstaller.exe --onefile .\ForensicEmailDownloader.py --name "ForensicEmailDownloader" --icon .\favicon.ico ´
+´´´pyinstaller.exe --onefile .\ForensicEmailDownloader.py --name "ForensicEmailDownloader" --icon .\favicon.ico´´´
 
 ## Malware Alert
 I know this, but its a false positive for my releases. Feel free to create your own exe. see above. 
