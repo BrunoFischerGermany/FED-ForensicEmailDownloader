@@ -533,7 +533,7 @@ programTitle = """
 
 (C) 2023 - BrunoFischerBerlin - MIT Licence
 Github: https://github.com/BrunoFischerGermany/FED-ForensicEmailDownloader
-Email: info @ bruno-fischer.de
+Email: ForensicEmailDownloader@mail.de
 """
 
 example1 = f"python3 {thisprogram} --username user@example.com --password mypassword --imapurl imap.example.com --output C:\\tmp --rangeend 2023-01-01"
